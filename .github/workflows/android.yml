@@ -1,0 +1,50 @@
+
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '*.zip'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract game
+        run: |
+          mkdir game
+          unzip -q "$(find . -maxdepth 1 -name '*.zip' | head -1)" -d game
+          echo "PROJECT=$PWD/game/FiveNightsInDed" >> $GITHUB_ENV
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK tools
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "ndk;26.3.11579264" "cmake;3.22.1"
+
+      - name: Prepare SDL2
+        run: bash "$PROJECT/android/setup_sdl.sh"
+
+      - name: Build APK
+        run: |
+          cd "$PROJECT/android"
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FiveNightsInDed-APK
+          path: game/FiveNightsInDed/android/app/build/outputs/apk/release/*.apk
